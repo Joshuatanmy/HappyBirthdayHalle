@@ -92,7 +92,7 @@ function drawText() {
 
     // Define your sequence of text
     const textSequence = [
-        { type: "single", text: "everyday day I cannot believe how lucky I am" },
+        { type: "single", text: "test" },
         { type: "multi", text: ["amongst trillions and trillions of stars,", "over billions of years"] },
         { type: "single", text: "we got to exist at the exact same time." } // Add as many as you want!
     ];

@@ -11,7 +11,7 @@ canvas {
     background: #111;
 }
 
-#valentinesButton {
+#clickButton {
     display: none;
     position: absolute;
     background-color: #2d2dff;
@@ -28,7 +28,57 @@ canvas {
     transition: background-color 0.3s ease-in-out, color 0.3s ease-in-out;
   }
 
-  #valentinesButton:hover {
+  #clickButton:hover {
     background-color: #1f1faa;
     color: #eee;
+}
+
+.card-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 100;
+}
+
+.card-overlay.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.card {
+    background: transparent;
+    padding: 0;
+    max-width: 90%;
+    width: 700px; /* adjust to taste */
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 0 40px rgba(255, 214, 130, 0.3);
+    position: relative; /* so .card-close anchors correctly */
+}
+
+.card-image {
+    width: 100%;
+    display: block;
+    border-radius: 16px;
+}
+
+.card-close {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    background: rgba(0, 0, 0, 0.4);
+    border: none;
+    color: #fff;
+    font-size: 1.5rem;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 1;
 }

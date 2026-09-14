@@ -22,31 +22,205 @@ for (var i = 0; i < stars; i++) {
     starArray.push({ x, y, radius, hue, sat, opacity });
 }
 
-button.addEventListener("click", () => {
-  if (button.textContent === "Click Me! ❤") {
-    button.textContent = "loading...";
-    fetch('send_mail.php')
-      .then(response => {
-        if (response.ok) {
-          button.textContent = "Check Your Email 🙃";
-        } else {
-          console.error('Failed to send email');
-          button.textContent = "Error 😞";
+var frameNumber = 0;
+var opacity = 0;
+var secondOpacity = 0;
+var thirdOpacity = 0;
+
+var baseFrame = context.getImageData(0, 0, window.innerWidth, window.innerHeight);
+
+function drawStars() {
+    for (var i = 0; i < stars; i++) {
+        var star = starArray[i];
+
+        context.beginPath();
+        context.arc(star.x, star.y, star.radius, 0, 360);
+        context.fillStyle = "hsla(" + star.hue + ", " + star.sat + "%, 88%, " + star.opacity + ")";
+        context.fill();
+    }
+}
+
+function updateStars() {
+    for (var i = 0; i < stars; i++) {
+        if (Math.random() > 0.99) {
+            starArray[i].opacity = Math.random();
         }
-      })
-      .catch(error => {
-        // Handle network errors or other issues
-        console.error('Error:', error);
-        button.textContent = "Error 😞";
-      });
-  }
+    }
+}
+
+const button = document.getElementById("clickButton");
+const overlay = document.getElementById("cardOverlay");
+const closeBtn = document.getElementById("closeCard");
+
+button.addEventListener("click", () => {
+    overlay.classList.add("visible");
 });
 
-window.addEventListener("resize", function () {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    baseFrame = context.getImageData(0, 0, window.innerWidth, window.innerHeight);
+closeBtn.addEventListener("click", () => {
+    overlay.classList.remove("visible");
 });
+
+overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.classList.remove("visible");
+});
+
+// button.addEventListener("click", () => {
+//   if (button.textContent === "Click Me! ❤") {
+//     button.textContent = "loading...";
+//     fetch('send_mail.php')
+//       .then(response => {
+//         if (response.ok) {
+//           button.textContent = "Check Your Email 🙃";
+//         } else {
+//           console.error('Failed to send email');
+//           button.textContent = "Error 😞";
+//         }
+//       })
+//       .catch(error => {
+//         // Handle network errors or other issues
+//         console.error('Error:', error);
+//         button.textContent = "Error 😞";
+//       });
+//   }
+// });
+
+function drawTextWithLineBreaks(lines, x, y, fontSize, lineHeight) {
+    lines.forEach((line, index) => {
+        context.fillText(line, x, y + index * (fontSize + lineHeight));
+    });
+}
+
+const READING_WPM = 180;
+const FRAMES_PER_SECOND = 60; // adjust if your rAF loop runs at a different effective rate
+const FADE_FRAMES = 60;       // fade in/out duration, separate from hold duration
+const MIN_HOLD_SECONDS = 1.5; // floor so very short lines don't vanish instantly
+
+function wordCount(text) {
+    return text.trim().split(/\s+/).length;
+}
+
+// Reading duration in frames, with an optional multiplier for emphasis
+function getHoldFrames(text, emphasisMultiplier = 1) {
+    const words = wordCount(text);
+    const seconds = Math.max((words / READING_WPM) * 60, MIN_HOLD_SECONDS);
+    return Math.round(seconds * FRAMES_PER_SECOND * emphasisMultiplier);
+}
+
+// Define your messages here — just edit this array to change the text
+const messages = [
+    { text: "Happy Birthday Halle!! <3", emphasisMultiplier: 1.5 },
+    { text: "This is the year you turn 22, a very special year indeed." },
+    { text: "You've done a ton of placements and at RMH no less, worked way too many jobs,",
+      mobileLines: ["You've done a ton of placements and at RMH no less,", "worked way too many jobs,"] },
+    { text: "pursued dance again, and helped me out more than I could have imagined." },
+    { text: "And you will graduate with a bachelors this year." },
+    { text: "I'm very proud of you. And very proud to be your boyfriend.", emphasisMultiplier: 1.5 },
+    { text: "I hope you enjoy your birthday (even though I'm not around 😢) but I'm there in spirit!",
+      lines: ["I hope you enjoy your birthday (even though I'm not around 😢)", "","but I'm there in spirit!"] },
+    { text: "I love you, HAPPY BIRTHDAY!",
+      lines: ["I love you,", "HAPPY BIRTHDAY!"],
+      emphasisMultiplier: 2,
+      holdForever: true },
+];
+
+// These display alongside the last message and stay visible (like your secondOpacity/thirdOpacity lines)
+const extraLines = [
+    { text: "and I will see you in Dec 😉", yOffset: 90, mobileYOffset: 60, showButton: true },
+];
+
+// Precompute startFrame and holdFrames for each item, chained sequentially
+function computeSchedule(items) {
+    let frame = 0;
+    items.forEach(item => {
+        item.startFrame = frame;
+        item.holdFrames = getHoldFrames(item.text, item.emphasisMultiplier || 1);
+        // total time this item occupies before the next one starts
+        frame += FADE_FRAMES + item.holdFrames + (item.holdForever ? 0 : FADE_FRAMES);
+    });
+}
+
+computeSchedule(messages);
+
+const lastMessageEnd = messages[messages.length - 1].startFrame + FADE_FRAMES;
+extraLines[0].startFrame = lastMessageEnd + 30;
+extraLines[0].holdFrames = getHoldFrames(extraLines[0].text, extraLines[0].emphasisMultiplier || 1);
+
+const FADE_DURATION = 200; // frames to fade in, then same to fade out (unless holdForever)
+
+// track opacity per message/extraLine by index
+const messageOpacities = new Array(messages.length).fill(0);
+const extraOpacities = new Array(extraLines.length).fill(0);
+
+function getOpacityForFrame(item, opacityState, index, frame) {
+    const start = item.startFrame;
+    if (frame < start) return opacityState[index];
+
+    const fadeInEnd = start + FADE_FRAMES;
+    const holdEnd = fadeInEnd + item.holdFrames;
+    const fadeOutEnd = holdEnd + FADE_FRAMES;
+
+    if (frame >= start && frame < fadeInEnd) {
+        opacityState[index] = Math.min(1, opacityState[index] + 1 / FADE_FRAMES);
+    } else if (frame >= fadeInEnd && frame < holdEnd) {
+        opacityState[index] = 1; // fully visible during hold
+    } else if (item.holdForever) {
+        opacityState[index] = 1; // stays visible past hold
+    } else if (frame >= holdEnd && frame < fadeOutEnd) {
+        opacityState[index] = Math.max(0, opacityState[index] - 1 / FADE_FRAMES);
+    } else if (frame >= fadeOutEnd) {
+        opacityState[index] = 0;
+    }
+    return opacityState[index];
+}
+
+function renderLine(item, opacity, yOffset = 0) {
+    context.fillStyle = `rgba(45, 45, 255, ${opacity})`;
+    var fontSize = Math.min(30, window.innerWidth / 24);
+    var lineHeight = 8;
+    var y = canvas.height / 2 + yOffset;
+
+    if (item.lines) {
+        // always break into these lines, on any screen size
+        drawTextWithLineBreaks(item.lines, canvas.width / 2, y, fontSize, lineHeight);
+    } else if (window.innerWidth < 600 && item.mobileLines) {
+        drawTextWithLineBreaks(item.mobileLines, canvas.width / 2, y, fontSize, lineHeight);
+    } else {
+        context.fillText(item.text, canvas.width / 2, y);
+    }
+}
+
+function drawText() {
+    var fontSize = Math.min(30, window.innerWidth / 24);
+    context.font = fontSize + "px Comic Sans MS";
+    context.textAlign = "center";
+
+    context.shadowColor = "rgba(45, 45, 255, 1)";
+    context.shadowBlur = 8;
+    context.shadowOffsetX = 0;
+    context.shadowOffsetY = 0;
+
+    messages.forEach((item, i) => {
+        if (frameNumber >= item.startFrame) {
+            const op = getOpacityForFrame(item, messageOpacities, i, frameNumber);
+            if (op > 0) renderLine(item, op);
+        }
+    });
+
+    extraLines.forEach((item, i) => {
+        if (frameNumber >= item.startFrame) {
+            const op = getOpacityForFrame({ ...item, holdForever: true }, extraOpacities, i, frameNumber);
+            const yOff = (window.innerWidth < 600 && item.mobileYOffset != null) ? item.mobileYOffset : item.yOffset;
+            if (op > 0) renderLine(item, op, yOff);
+            if (item.showButton) {
+                    button.style.display = "block";}
+        }
+    });
+
+    context.shadowColor = "transparent";
+    context.shadowBlur = 0;
+    context.shadowOffsetX = 0;
+    context.shadowOffsetY = 0;
+}
 
 function draw() {
     context.putImageData(baseFrame, 0, 0);
@@ -61,110 +235,10 @@ function draw() {
     window.requestAnimationFrame(draw);
 }
 
-function drawTextWithLineBreaks(lines, x, y, fontSize, lineHeight) {
-    lines.forEach((line, index) => {
-        context.fillText(line, x, y + index * (fontSize + lineHeight));
-    });
-}
-
-// Button Trigger
-const startButton = document.getElementById('startButton');
-startButton.addEventListener('click', () => {
-    if (fadeState === "idle") {
-        currentTextIndex = 0;
-        opacity = 0;
-        fadeState = "fadeIn";
-    }
+window.addEventListener("resize", function () {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    baseFrame = context.getImageData(0, 0, window.innerWidth, window.innerHeight);
 });
-
-function drawText() {
-    var fontSize = Math.min(30, window.innerWidth / 24); // Adjust font size based on screen width
-    var lineHeight = 8;
-
-    context.font = fontSize + "px Comic Sans MS";
-    context.textAlign = "center";
-    
-    // glow effect
-    context.shadowColor = "rgba(45, 45, 255, 1)";
-    context.shadowBlur = 8;
-    context.shadowOffsetX = 0;
-    context.shadowOffsetY = 0;
-
-    // Define your sequence of text
-    const textSequence = [
-        { type: "single", text: "test" },
-        { type: "multi", text: ["amongst trillions and trillions of stars,", "over billions of years"] },
-        { type: "single", text: "we got to exist at the exact same time." } // Add as many as you want!
-    ];
-
-    let currentTextIndex = 0;
-    let opacity = 0;
-    let fadeState = "idle"; // "idle", "fadeIn", "hold", "fadeOut"
-    let holdCounter = 0;
-
-    // Configuration
-    const fadeSpeed = 0.02; 
-    const holdDuration = 120; // How many frames to stay fully visible (e.g., 2 seconds at 60fps)
-    // 1. Clear the canvas
-    context.clearRect(0, 0, canvas.width, canvas.height);
-
-    // 2. State Machine for handling sequential fades
-    if (fadeState === "fadeIn") {
-        opacity += fadeSpeed;
-        if (opacity >= 1) {
-            opacity = 1;
-            fadeState = "hold";
-            holdCounter = 0; // Reset the hold timer
-        }
-    } 
-    else if (fadeState === "hold") {
-        holdCounter++;
-        if (holdCounter >= holdDuration) {
-            fadeState = "fadeOut";
-        }
-    } 
-    else if (fadeState === "fadeOut") {
-        opacity -= fadeSpeed;
-        if (opacity <= 0) {
-            opacity = 0;
-            // Move to the next line of text
-            currentTextIndex++;
-            
-            // Check if there are more phrases left
-            if (currentTextIndex < textSequence.length) {
-                fadeState = "fadeIn"; // Fade in the next line
-            } else {
-                fadeState = "idle";   // Sequence finished
-            }
-        }
-    }
-
-    // 3. Render the active text phrase
-    if (fadeState !== "idle") {
-        context.fillStyle = `rgba(45, 45, 255, ${opacity})`;
-        const currentData = textSequence[currentTextIndex];
-
-        // Check if it's a mobile screen AND the text requires breaks
-        if (window.innerWidth < 600 && currentData.type === "multi") {
-            drawTextWithLineBreaks(
-                currentData.text, 
-                canvas.width / 2, 
-                canvas.height / 2, 
-                fontSize, 
-                lineHeight
-            );
-        } else {
-            // If it's an array (multi), join it with a space for desktop view
-            const textString = Array.isArray(currentData.text) 
-                ? currentData.text.join(" ") 
-                : currentData.text;
-
-            context.fillText(textString, canvas.width / 2, canvas.height / 2);
-        }
-    }
-    
-
-
-}
 
 window.requestAnimationFrame(draw);

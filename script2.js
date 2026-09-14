@@ -174,7 +174,7 @@ function getOpacityForFrame(item, opacityState, index, frame) {
 }
 
 function renderLine(item, opacity, yOffset = 0) {
-    context.fillStyle = `rgba(45, 45, 255, ${opacity})`;
+    context.fillStyle = `rgba(255, 143, 171, ${opacity})`; // rosy pink
     var fontSize = Math.min(30, window.innerWidth / 24);
     var lineHeight = 8;
     var y = canvas.height / 2 + yOffset;
@@ -191,10 +191,10 @@ function renderLine(item, opacity, yOffset = 0) {
 
 function drawText() {
     var fontSize = Math.min(30, window.innerWidth / 24);
-    context.font = fontSize + "px Comic Sans MS";
+    context.font = fontSize + "px Quicksand"; 
     context.textAlign = "center";
 
-    context.shadowColor = "rgba(45, 45, 255, 1)";
+    context.shadowColor = "rgba(255, 143, 171, 0.8)"; // rosy glow
     context.shadowBlur = 8;
     context.shadowOffsetX = 0;
     context.shadowOffsetY = 0;
@@ -241,4 +241,6 @@ window.addEventListener("resize", function () {
     baseFrame = context.getImageData(0, 0, window.innerWidth, window.innerHeight);
 });
 
-window.requestAnimationFrame(draw);
+document.fonts.load('30px Quicksand').then(() => {
+    window.requestAnimationFrame(draw);
+});
